@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Audio Recorder</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&family=Space+Mono:wght@400;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&family=Playfair+Display:wght@400&family=Space+Mono:wght@400;700&display=swap');
 
     :root {
       --bg: #0a0a0f;
@@ -55,12 +55,13 @@
     }
 
     .header h1 {
-      font-family: 'Space Mono', monospace;
-      font-size: 14px;
-      letter-spacing: 4px;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 8px;
+      font-family: 'Playfair Display', Georgia, serif;
+      font-size: 52px;
+      font-weight: 400;
+      letter-spacing: 0.08em;
+      color: var(--text);
+      margin-bottom: 16px;
+      line-height: 1.1;
     }
 
     .header p {
@@ -199,8 +200,8 @@
 <body>
   <div class="container">
     <div class="header">
-      <h1>Audio Capture</h1>
-      <p>Tap the circle to record. Audio uploads to Dropbox automatically.</p>
+      <h1>O Living Always</h1>
+      <p><!-- description goes here --></p>
     </div>
 
     <div class="recorder-ring" id="recorderRing" onclick="toggleRecording()">
