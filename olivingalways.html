@@ -355,6 +355,7 @@
     let isRecording = false;
     let recaptchaWidgetId = null;
     let pendingRecaptchaToken = null;
+    let waitingToRecord = false;
 
     const NUM_BARS = 40;
     const waveformEl = document.getElementById('waveform');
@@ -379,11 +380,15 @@
         size: 'invisible',
         callback: onRecaptchaToken,
       });
+      grecaptcha.execute(recaptchaWidgetId);
     }
 
     function onRecaptchaToken(token) {
       pendingRecaptchaToken = token;
-      startRecording();
+      if (waitingToRecord) {
+        waitingToRecord = false;
+        startRecording();
+      }
     }
 
     function setStatus(msg, type = '') {
@@ -424,7 +429,10 @@
     function toggleRecording() {
       if (isRecording) {
         stopRecording();
+      } else if (pendingRecaptchaToken) {
+        startRecording();
       } else {
+        waitingToRecord = true;
         grecaptcha.execute(recaptchaWidgetId);
       }
     }
@@ -474,7 +482,9 @@
       } catch (err) {
         setStatus('Microphone access denied.', 'error');
         pendingRecaptchaToken = null;
+        waitingToRecord = false;
         grecaptcha.reset(recaptchaWidgetId);
+        grecaptcha.execute(recaptchaWidgetId);
         console.error(err);
       }
     }
@@ -523,6 +533,7 @@
       } finally {
         pendingRecaptchaToken = null;
         grecaptcha.reset(recaptchaWidgetId);
+        grecaptcha.execute(recaptchaWidgetId);
         ringEl.classList.remove('uploading');
         ringLabel.textContent = 'Tap to record';
         timerEl.textContent = '00:00';
