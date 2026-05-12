@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audio Recorder</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;1,9..40,400&family=Space+Mono:wght@400;700&display=swap');
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --border: #1e1e2a;
+      --text: #e8e8ed;
+      --text-dim: #6e6e82;
+      --accent: #ff3d3d;
+      --accent-glow: rgba(255, 61, 61, 0.25);
+      --green: #2dd4a0;
+      --green-glow: rgba(45, 212, 160, 0.2);
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 480px;
+      padding: 24px;
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 48px;
+    }
+
+    .header h1 {
+      font-family: 'Space Mono', monospace;
+      font-size: 14px;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 8px;
+    }
+
+    .header p {
+      font-size: 13px;
+      color: var(--text-dim);
+      opacity: 0.6;
+    }
+
+    .recorder-ring {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      margin: 0 auto 40px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.3s ease;
+    }
+
+    .recorder-ring:hover { transform: scale(1.03); }
+    .recorder-ring:active { transform: scale(0.97); }
+
+    .recorder-ring::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      transition: border-color 0.4s, box-shadow 0.4s;
+    }
+
+    .recorder-ring.recording::before {
+      border-color: var(--accent);
+      box-shadow: 0 0 40px var(--accent-glow), inset 0 0 40px var(--accent-glow);
+    }
+
+    .recorder-ring.uploading::before {
+      border-color: var(--green);
+      box-shadow: 0 0 40px var(--green-glow), inset 0 0 40px var(--green-glow);
+    }
+
+    .ring-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      transition: color 0.3s;
+      user-select: none;
+    }
+
+    .recorder-ring.recording .ring-label { color: var(--accent); }
+    .recorder-ring.uploading .ring-label { color: var(--green); }
+
+    .waveform {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      height: 48px;
+      margin-bottom: 32px;
+    }
+
+    .waveform .bar {
+      width: 3px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 2px;
+      transition: height 0.08s ease, background 0.3s;
+    }
+
+    .waveform.active .bar { background: var(--accent); }
+
+    .timer {
+      font-family: 'Space Mono', monospace;
+      font-size: 32px;
+      text-align: center;
+      margin-bottom: 32px;
+      color: var(--text-dim);
+      letter-spacing: 2px;
+      transition: color 0.3s;
+    }
+
+    .timer.active { color: var(--text); }
+
+    .status {
+      text-align: center;
+      font-size: 13px;
+      color: var(--text-dim);
+      min-height: 20px;
+      margin-bottom: 16px;
+    }
+
+    .status.error { color: var(--accent); }
+    .status.success { color: var(--green); }
+
+    .history {
+      margin-top: 40px;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+    }
+
+    .history h2 {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      color: var(--text-dim);
+      margin-bottom: 16px;
+    }
+
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .history-item .name { color: var(--text); font-family: 'Space Mono', monospace; font-size: 12px; }
+    .history-item .meta { color: var(--text-dim); font-size: 12px; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 1; }
+    }
+
+    .recorder-ring.recording .ring-label {
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Audio Capture</h1>
+      <p>Tap the circle to record. Audio uploads to Dropbox automatically.</p>
+    </div>
+
+    <div class="recorder-ring" id="recorderRing" onclick="toggleRecording()">
+      <span class="ring-label" id="ringLabel">Tap to record</span>
+    </div>
+
+    <div class="waveform" id="waveform"></div>
+
+    <div class="timer" id="timer">00:00</div>
+
+    <div class="status" id="status"></div>
+
+    <div class="history" id="historySection" style="display:none;">
+      <h2>Uploads</h2>
+      <div id="historyList"></div>
+    </div>
+  </div>
+
+  <div id="recaptcha-container"></div>
+
+  <script>
+    const API_ENDPOINT = 'https://44ga5gt46eibubi6fy2boem54m0tthno.lambda-url.us-east-2.on.aws/';
+    const RECAPTCHA_SITE_KEY = '6Ldc2OYsAAAAAJ-Fc-7yZkHFPwNhmsUR3hD5m9BK';
+
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let startTime = null;
+    let timerInterval = null;
+    let analyser = null;
+    let audioCtx = null;
+    let dataArray = null;
+    let animFrame = null;
+    let isRecording = false;
+    let recaptchaWidgetId = null;
+    let pendingRecaptchaToken = null;
+
+    const NUM_BARS = 40;
+    const waveformEl = document.getElementById('waveform');
+    const timerEl = document.getElementById('timer');
+    const statusEl = document.getElementById('status');
+    const ringEl = document.getElementById('recorderRing');
+    const ringLabel = document.getElementById('ringLabel');
+    const historySection = document.getElementById('historySection');
+    const historyList = document.getElementById('historyList');
+
+    for (let i = 0; i < NUM_BARS; i++) {
+      const bar = document.createElement('div');
+      bar.classList.add('bar');
+      waveformEl.appendChild(bar);
+    }
+    const bars = waveformEl.querySelectorAll('.bar');
+
+    function onRecaptchaLoad() {
+      recaptchaWidgetId = grecaptcha.render('recaptcha-container', {
+        sitekey: RECAPTCHA_SITE_KEY,
+        size: 'invisible',
+        callback: onRecaptchaToken,
+      });
+    }
+
+    function onRecaptchaToken(token) {
+      pendingRecaptchaToken = token;
+      startRecording();
+    }
+
+    function setStatus(msg, type = '') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + type;
+    }
+
+    function updateTimer() {
+      const elapsed = Math.floor((Date.now() - startTime) / 1000);
+      const m = String(Math.floor(elapsed / 60)).padStart(2, '0');
+      const s = String(elapsed % 60).padStart(2, '0');
+      timerEl.textContent = `${m}:${s}`;
+    }
+
+    function drawWaveform() {
+      if (!analyser) return;
+      analyser.getByteFrequencyData(dataArray);
+      const step = Math.floor(dataArray.length / NUM_BARS);
+      for (let i = 0; i < NUM_BARS; i++) {
+        const val = dataArray[i * step] || 0;
+        bars[i].style.height = Math.max(4, (val / 255) * 48) + 'px';
+      }
+      animFrame = requestAnimationFrame(drawWaveform);
+    }
+
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function toggleRecording() {
+      if (isRecording) {
+        stopRecording();
+      } else {
+        grecaptcha.execute(recaptchaWidgetId);
+      }
+    }
+
+    async function startRecording() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const source = audioCtx.createMediaStreamSource(stream);
+        analyser = audioCtx.createAnalyser();
+        analyser.fftSize = 256;
+        source.connect(analyser);
+        dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+        mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (e) => {
+          if (e.data.size > 0) audioChunks.push(e.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          cancelAnimationFrame(animFrame);
+          if (audioCtx) audioCtx.close();
+          bars.forEach(b => b.style.height = '6px');
+          waveformEl.classList.remove('active');
+
+          const blob = new Blob(audioChunks, { type: 'audio/webm' });
+          await uploadAudio(blob);
+        };
+
+        mediaRecorder.start(250);
+        isRecording = true;
+        startTime = Date.now();
+        timerInterval = setInterval(updateTimer, 500);
+
+        ringEl.classList.add('recording');
+        ringLabel.textContent = 'Recording…';
+        timerEl.classList.add('active');
+        waveformEl.classList.add('active');
+        setStatus('');
+        drawWaveform();
+
+      } catch (err) {
+        setStatus('Microphone access denied.', 'error');
+        pendingRecaptchaToken = null;
+        grecaptcha.reset(recaptchaWidgetId);
+        console.error(err);
+      }
+    }
+
+    function stopRecording() {
+      if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+        mediaRecorder.stop();
+      }
+      isRecording = false;
+      clearInterval(timerInterval);
+      ringEl.classList.remove('recording');
+      ringLabel.textContent = 'Tap to record';
+      timerEl.classList.remove('active');
+    }
+
+    async function uploadAudio(blob) {
+      ringEl.classList.add('uploading');
+      ringLabel.textContent = 'Uploading…';
+      setStatus('Sending to Dropbox…');
+
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `recording-${timestamp}.webm`;
+
+      try {
+        const audioData = await blobToBase64(blob);
+
+        const res = await fetch(API_ENDPOINT, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ filename, audioData, recaptchaToken: pendingRecaptchaToken }),
+        });
+
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`Server error ${res.status}: ${errBody}`);
+        }
+
+        const result = await res.json();
+        setStatus(`Saved to Dropbox: ${result.path}`, 'success');
+        addHistoryItem(filename, blob.size);
+
+      } catch (err) {
+        console.error(err);
+        setStatus('Upload failed — check console.', 'error');
+      } finally {
+        pendingRecaptchaToken = null;
+        grecaptcha.reset(recaptchaWidgetId);
+        ringEl.classList.remove('uploading');
+        ringLabel.textContent = 'Tap to record';
+        timerEl.textContent = '00:00';
+      }
+    }
+
+    function addHistoryItem(name, sizeBytes) {
+      historySection.style.display = 'block';
+      const kb = (sizeBytes / 1024).toFixed(1);
+      const now = new Date().toLocaleTimeString();
+      const item = document.createElement('div');
+      item.className = 'history-item';
+      item.innerHTML = `<span class="name">${name}</span><span class="meta">${kb} KB · ${now}</span>`;
+      historyList.prepend(item);
+    }
+  </script>
+
+  <script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit" async defer></script>
+</body>
+</html>
